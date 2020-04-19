@@ -14,6 +14,7 @@ struct UserController: RouteCollection {
         adminAuthRoutes.get(use: getAll)
         basicAuthRoutes.post("login", use: login)
         adminAuthRoutes.delete(":userID", use: delete)
+        tokenAuthRoutes.get("mine", use: getMyGames)
     }
     
     func getAll(_ req: Request) throws -> EventLoopFuture<[User]> {
@@ -40,6 +41,13 @@ struct UserController: RouteCollection {
         let token = try user.generateToken()
         return token.save(on: req.db).map { token }
     }
+    
+    func getMyGames(_ req: Request) throws -> EventLoopFuture<[User]> {
+        //let user = try req.auth.require(User.self)
+        //return User.query(on: req.db).with(\.$games).all()
+        return User.query(on: req.db).all()
+    }
+    
 }
 
 struct CreateUserData: Content {

@@ -28,21 +28,21 @@ final class Token: Model, Content, ModelTokenAuthenticatable {
         self.isRevoked = false
     }
 }
+extension Token {
+    struct TokenMigration: Migration {
+        func prepare(on database: Database) -> EventLoopFuture<Void> {
+            return database.schema("tokens")
+                .id()
+                .field("tokenValue", .string, .required)
+                .field("userId", .uuid, .required, .references("users", "id"))
+                .field("expiresAt", .date, .required)
+                .field("isRevoked", .bool, .required)
+                .unique(on: "tokenValue")
+                .create()
+        }
 
-struct CreateToken: Migration {
-    func prepare(on database: Database) -> EventLoopFuture<Void> {
-        return database.schema("tokens")
-            .id()
-            .field("tokenValue", .string, .required)
-            .field("userId", .uuid, .required, .references("users", "id"))
-            .field("expiresAt", .date, .required)
-            .field("isRevoked", .bool, .required)
-            .unique(on: "tokenValue")
-            .create()
-    }
-
-    func revert(on database: Database) -> EventLoopFuture<Void> {
-        return database.schema("tokens").delete()
+        func revert(on database: Database) -> EventLoopFuture<Void> {
+            return database.schema("tokens").delete()
+        }
     }
 }
-
