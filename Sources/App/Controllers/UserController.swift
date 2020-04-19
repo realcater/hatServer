@@ -4,53 +4,45 @@ import Vapor
 struct UserController: RouteCollection {
     
     func boot(routes: RoutesBuilder) throws {
-        let userRoutes = routes.grouped("users")
-        userRoutes.get(use: indexHandler)
-        userRoutes.post(use: createHandler)
-        let httpBasicAuthRoutes = userRoutes.grouped(User.authenticator())
-        httpBasicAuthRoutes.post("login", use: loginHandler)
-        
-        // Token.authenticator.middleware() adds Bearer authentication with middleware,
-        // Guard middlware ensures a user is logged in
+        let userRoutes = routes.grouped("api", "users")
+        let basicAuthRoutes = userRoutes.grouped(User.authenticator())
         let tokenAuthRoutes = userRoutes.grouped(Token.authenticator(), User.guardMiddleware())
-        tokenAuthRoutes.get("me", use: getMyDetailsHandler)
+        let adminAuthRoutes = tokenAuthRoutes.grouped(AdminMiddleware())
+        let appAuthRoutes = tokenAuthRoutes.grouped(AppMiddleware())
         
-        let adminMiddleware = tokenAuthRoutes.grouped(AdminMiddleware())
-        adminMiddleware.delete(":userID", use: deleteHandler)
+        appAuthRoutes.post(use: create)
+        adminAuthRoutes.get(use: getAll)
+        basicAuthRoutes.post("login", use: login)
+        adminAuthRoutes.delete(":userID", use: delete)
     }
     
-    func indexHandler(_ req: Request) throws -> EventLoopFuture<[User]> {
+    func getAll(_ req: Request) throws -> EventLoopFuture<[User]> {
         return User.query(on: req.db).all()
     }
 
-    func createHandler(_ req: Request) throws -> EventLoopFuture<User> {
+    func create(_ req: Request) throws -> EventLoopFuture<User> {
         let userData = try req.content.decode(CreateUserData.self)
         let passwordHash = try Bcrypt.hash(userData.password)
-        let user = User(name: userData.name, email: userData.email, passwordHash: passwordHash, userType: userData.userType)
+        
+        let user = User(name: userData.name, passwordHash: passwordHash)
         return user.save(on: req.db).map { user }
     }
 
-    func deleteHandler(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+    func delete(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
         return User.find(req.parameters.get("userID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { $0.delete(on: req.db) }
             .transform(to: .ok)
     }
     
-    func loginHandler(_ req: Request) throws -> EventLoopFuture<Token> {
+    func login(_ req: Request) throws -> EventLoopFuture<Token> {
         let user = try req.auth.require(User.self)
         let token = try user.generateToken()
         return token.save(on: req.db).map { token }
-    }
-    
-    func getMyDetailsHandler(_ req: Request) throws -> User {
-        try req.auth.require(User.self)
     }
 }
 
 struct CreateUserData: Content {
     let name: String
-    let email: String
     let password: String
-    let userType: UserType
 }

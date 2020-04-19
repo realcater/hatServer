@@ -11,20 +11,11 @@ final class Token: Model, Content, ModelTokenAuthenticatable {
         return self.expiresAt > Date() && !self.isRevoked
     }
     
-    @ID(key: .id)
-    var id: UUID?
-
-    @Field(key: "token_value")
-    var value: String
-    
-    @Parent(key: "user_id")
-    var user: User
-    
-    @Field(key: "expires_at")
-    var expiresAt: Date
-    
-    @Field(key: "is_revoked")
-    var isRevoked: Bool
+    @ID(key: .id) var id: UUID?
+    @Field(key: "tokenValue") var value: String
+    @Parent(key: "userId") var user: User
+    @Field(key: "expiresAt") var expiresAt: Date
+    @Field(key: "isRevoked") var isRevoked: Bool
 
     init() { }
 
@@ -38,4 +29,20 @@ final class Token: Model, Content, ModelTokenAuthenticatable {
     }
 }
 
+struct CreateToken: Migration {
+    func prepare(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema("tokens")
+            .id()
+            .field("tokenValue", .string, .required)
+            .field("userId", .uuid, .required, .references("users", "id"))
+            .field("expiresAt", .date, .required)
+            .field("isRevoked", .bool, .required)
+            .unique(on: "tokenValue")
+            .create()
+    }
+
+    func revert(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema("tokens").delete()
+    }
+}
 

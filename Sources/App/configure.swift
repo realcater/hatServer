@@ -9,14 +9,16 @@ public func configure(_ app: Application) throws {
 
     app.databases.use(.postgres(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database"
+        username: Environment.get("DATABASE_USERNAME") ?? "vapor",
+        password: Environment.get("DATABASE_PASSWORD") ?? "vapor",
+        database: Environment.get("DATABASE_NAME") ?? "vapor"
     ), as: .psql)
 
     app.migrations.add(CreateUser())
-    app.migrations.add(CreateTodo())
+    app.migrations.add(CreateGame())
     app.migrations.add(CreateToken())
+    app.migrations.add(AdminUser())
+    app.migrations.add(AppUser())
 
     // register routes
     try routes(app)

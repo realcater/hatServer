@@ -3,32 +3,22 @@ import Vapor
 
 final class User: Model, Content, ModelAuthenticatable {
     static let schema = "users"
-    static let usernameKey = \User.$email
+    static let usernameKey = \User.$name
     static let passwordHashKey = \User.$passwordHash
     
-    @ID(key: .id)
-    var id: UUID?
-
-    @Field(key: "name")
-    var name: String
+    @ID(key: .id) var id: UUID?
+    @Field(key: "name") var name: String
+    @Field(key: "passwordHash") var passwordHash: String
+    @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
+    @Timestamp(key: "updatedAt", on: .update) var updatedAt: Date?
+    @Timestamp(key: "deletedAt", on: .delete) var deletedAt: Date?
     
-    @Field(key: "email")
-    var email: String
-    
-    @Field(key: "password_hash")
-    var passwordHash: String
-    
-    @Field(key: "user_type")
-    var userType: UserType
-
     init() { }
 
-    init(id: UUID? = nil, name: String, email: String, passwordHash: String, userType: UserType) {
+    init(id: UUID? = nil, name: String, passwordHash: String) {
         self.id = id
         self.name = name
-        self.email = email
         self.passwordHash = passwordHash
-        self.userType = userType
     }
     
     func verify(password: String) throws -> Bool {
@@ -45,7 +35,20 @@ extension User {
     }
 }
 
-enum UserType: String, Content {
-    case normal
-    case admin
+struct CreateUser: Migration {
+    func prepare(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema("users")
+            .id()
+            .field("name", .string, .required)
+            .field("passwordHash", .string, .required)
+            .field("createdAt", .datetime)
+            .field("updatedAt", .datetime)
+            .field("deletedAt", .datetime)
+            .unique(on: "name")
+            .create()
+    }
+
+    func revert(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema("users").delete()
+    }
 }
