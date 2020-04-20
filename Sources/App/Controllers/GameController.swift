@@ -15,6 +15,7 @@ struct GameController: RouteCollection {
         tokenAuthRoutes.post(":gameID","accept", use: acceptGame)
         tokenAuthRoutes.get(":gameID","update", use: getUpdate)
         tokenAuthRoutes.post(":gameID","update", use: setUpdate)
+        tokenAuthRoutes.get("mine", use: getMyGames)
     }
     
     func getAll(_ req: Request) throws -> EventLoopFuture<[Game]> {
@@ -26,8 +27,14 @@ struct GameController: RouteCollection {
         let user = try req.auth.require(User.self)
         let gameData = try req.content.decode(GameData.self)
         let data = try JSONEncoder().encode(gameData)
-        let game = Game(data: data, userID: user.id!)
-        return game.save(on: req.db).map { game }
+        let game = Game(data: data, userOwnerID: user.id!)
+        return game.save(on: req.db)
+            .flatMap {
+            let usersAddToGame: [EventLoopFuture<Void>] = gameData.players.map {
+                    UserGame(userID: $0.id, gameID: game.id!, accepted: false).save(on: req.db)
+            }
+            return usersAddToGame.flatten(on: req.eventLoop).map { game }
+        }
     }
 
     func delete(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
@@ -59,5 +66,13 @@ struct GameController: RouteCollection {
                 game.data = try! JSONEncoder().encode(gameData)
                 return game.save(on: req.db).transform(to: HTTPStatus.ok)
         }
+    }
+    func getMyGames(_ req: Request) throws -> EventLoopFuture<[Game]> {
+        let userID = try req.auth.require(User.self).id
+        //return UserGame.query(on: req.db).filter(\.$user.$id == userID!).all()
+        return User
+            .find(userID, on: req.db)
+            .unwrap(or: Abort(.notFound))
+            .flatMap { $0.$games.query(on: req.db).all() }
     }
 }

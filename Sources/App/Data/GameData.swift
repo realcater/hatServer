@@ -9,11 +9,13 @@ enum WordStatus: Int, Codable  {
 
 final class Player: Codable {
     
-    init(name: String, tellGuessed: Int, listenGuessed: Int) {
+    init(id: UUID, name: String, tellGuessed: Int, listenGuessed: Int) {
+        self.id = id
         self.name = name
         self.tellGuessed = tellGuessed
         self.listenGuessed = listenGuessed
     }
+    var id: UUID
     var name: String
     var tellGuessed: Int
     var listenGuessed: Int

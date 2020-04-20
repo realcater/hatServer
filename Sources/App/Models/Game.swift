@@ -14,10 +14,12 @@ final class Game: Model, Content {
     
     init() { }
 
-    init(id: UUID? = nil, data: Data, userID: User.IDValue) {
+    init(id: UUID? = nil, data: Data, userOwnerID: User.IDValue)//, usersID: [User.IDValue])
+    {
         self.id = id
         self.data = data
-        self.$userOwner.id = userID
+        self.$userOwner.id = userOwnerID
+        
     }
 }
 extension Game {
@@ -36,12 +38,5 @@ extension Game {
         func revert(on database: Database) -> EventLoopFuture<Void> {
             return database.schema("games").delete()
         }
-    }
-}
-
-extension Game {
-    func addGame(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
-        guard let gameID: Game.IDValue = req.parameters.get("gameID") else { throw Abort(.notFound) }
-        return UserGame(userID: id!, gameID: gameID, accepted: false).save(on: req.db).transform(to: .ok)
     }
 }

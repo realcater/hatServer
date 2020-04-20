@@ -2,15 +2,8 @@ import Fluent
 import Vapor
 
 func routes(_ app: Application) throws {
-    app.get { req in
-        return "It works!"
-    }
-
-    app.get("hello") { req -> String in
-        return "Hello, world!"
-    }
+    app.get { req in return "It works!" }
 
     try app.register(collection: UserController())
     try app.register(collection: GameController())
-    try app.register(collection: UserGameController())
 }
