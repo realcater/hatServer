@@ -56,6 +56,24 @@
         }
       },
       {
+        "package": "jwt",
+        "repositoryURL": "https://github.com/vapor/jwt.git",
+        "state": {
+          "branch": null,
+          "revision": "8c1681e9497b72430fa62962f61339d3573c7b0f",
+          "version": "4.0.0-rc.2"
+        }
+      },
+      {
+        "package": "jwt-kit",
+        "repositoryURL": "https://github.com/vapor/jwt-kit.git",
+        "state": {
+          "branch": null,
+          "revision": "b5aa3d4eb91b54d0bd31a1a0c238199f2bf65969",
+          "version": "4.0.0-rc.1.4"
+        }
+      },
+      {
         "package": "postgres-kit",
         "repositoryURL": "https://github.com/vapor/postgres-kit.git",
         "state": {

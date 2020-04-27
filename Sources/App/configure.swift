@@ -6,7 +6,7 @@ import Vapor
 public func configure(_ app: Application) throws {
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
-
+    
     app.databases.use(.postgres(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
         username: Environment.get("DATABASE_USERNAME") ?? "vapor",
@@ -17,13 +17,14 @@ public func configure(_ app: Application) throws {
     app.migrations.add(User.UserMigration())
     app.migrations.add(Game.GameMigration())
     app.migrations.add(UserGame.UserGameMigration())
-    app.migrations.add(Token.TokenMigration())
-    
-    
+    app.migrations.add(LogGameUpdate.LogGameUpdateMigration())
+    app.migrations.add(Word.WordMigration())
     
     app.migrations.add(AdminUser())
     app.migrations.add(AppUser())
 
     // register routes
     try routes(app)
+    try jwtSign(app)
+    
 }

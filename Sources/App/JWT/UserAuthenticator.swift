@@ -1,8 +1,11 @@
-//
-//  UserAuthenticator.swift
-//  App
-//
-//  Created by Realcater on 21.04.2020.
-//
+import Vapor
+import JWT
 
-import Foundation
+struct UserAuthenticator: JWTAuthenticator {
+    typealias Payload = JWTTokenPayload
+    
+    func authenticate(jwt: Payload, for req: Request) -> EventLoopFuture<Void> {
+        req.auth.login(jwt)
+        return req.eventLoop.makeSucceededFuture(())
+    }
+}

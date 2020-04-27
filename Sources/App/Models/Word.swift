@@ -7,7 +7,7 @@ final class Word: Model, Content {
     @ID(key: .id) var id: UUID?
     @Field(key: "word") var word: String
     @Field(key: "timeGuessed") var timeGuessed: Double
-    @Field(key: "isGuessed") var isGuessed: Bool
+    @Field(key: "guessedStatus") var guessedStatus: GuessedStatus
     @Parent(key: "gameID") var game: Game
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
     @Timestamp(key: "updatedAt", on: .update) var updatedAt: Date?
@@ -15,12 +15,12 @@ final class Word: Model, Content {
     
     init() { }
 
-    init(id: UUID? = nil, word: String, timeGuessed: Double, isGuessed: Bool, gameID: Game.IDValue)
+    init(id: UUID? = nil, word: String, timeGuessed: Double, guessedStatus: GuessedStatus, gameID: Game.IDValue)
     {
         self.id = id
         self.word = word
         self.timeGuessed = timeGuessed
-        self.isGuessed = isGuessed
+        self.guessedStatus = guessedStatus
         self.$game.id = gameID
     }
 }
@@ -29,9 +29,9 @@ extension Word {
         func prepare(on database: Database) -> EventLoopFuture<Void> {
             return database.schema("words")
                 .id()
-                .field("data", .string, .required)
+                .field("word", .string, .required)
                 .field("timeGuessed", .double, .required)
-                .field("isGuessed", .bool, .required)
+                .field("guessedStatus", .int, .required)
                 .field("gameID", .uuid, .required, .references("games", "id"))
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)

@@ -5,8 +5,9 @@ struct GameController: RouteCollection {
     
     func boot(routes: RoutesBuilder) throws {
         let gameRoutes = routes.grouped("api", "games")
-        let tokenAuthRoutes = gameRoutes.grouped(Token.authenticator(), User.guardMiddleware())
-        let adminAuthRoutes = tokenAuthRoutes.grouped(AdminMiddleware())
+       
+        let tokenAuthRoutes = gameRoutes.grouped(UserAuthenticator(), JWTGuardMiddleware())
+        let adminAuthRoutes = gameRoutes.grouped(UserAuthenticator(), AdminMiddleware())
         
         adminAuthRoutes.get(use: getAll)
         adminAuthRoutes.delete(":gameID", use: delete)
@@ -24,10 +25,10 @@ struct GameController: RouteCollection {
     }
 
     func create(_ req: Request) throws -> EventLoopFuture<Game> {
-        let user = try req.auth.require(User.self)
+        let userID = try? req.auth.require(JWTTokenPayload.self).userID
         let gameData = try req.content.decode(GameData.self)
         let data = try JSONEncoder().encode(gameData)
-        let game = Game(data: data, userOwnerID: user.id!)
+        let game = Game(data: data, userOwnerID: userID!)
         return game.save(on: req.db)
             .flatMap {
             let usersAddToGame: [EventLoopFuture<Void>] = gameData.players.map {
@@ -45,15 +46,15 @@ struct GameController: RouteCollection {
     }
     
     func acceptGame(_ req: Request) throws -> EventLoopFuture<HTTPStatus>{
-        let user = try req.auth.require(User.self)
+        let userID = try req.auth.require(JWTTokenPayload.self).userID
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { game in
                 let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
-                guard gameData.players.map({ $0.id }).contains(user.id) else {
+                guard gameData.players.map({ $0.id }).contains(userID) else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
-                return UserGame(userID: user.id!, gameID: game.id!, accepted: true).save(on: req.db).transform(to: .ok)
+                return UserGame(userID: userID, gameID: game.id!, accepted: true).save(on: req.db).transform(to: .ok)
         }
     }
     
@@ -64,19 +65,33 @@ struct GameController: RouteCollection {
                 return gameData }
     }
     func updateGame(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
-        let user = try req.auth.require(User.self)
-        let gameData = try req.content.decode(GameData.self)
+        let userID = try req.auth.require(JWTTokenPayload.self).userID
+        let updateData = try req.content.decode(UpdateData.self)
+        let gameData = updateData.gameData
+        let wordsData = updateData.wordsData
+        
         return Game.find(req.parameters.get("gameID"), on: req.db)
-            .unwrap(or: Abort(.notFound)).flatMap { game in
-                guard gameData.players.map({ $0.id }).contains(user.id) else {
+            .unwrap(or: Abort(.notFound))
+            .flatMap { game in
+                guard gameData.players.map({ $0.id }).contains(userID) else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
                 game.data = try! JSONEncoder().encode(gameData)
-                return game.save(on: req.db).transform(to: HTTPStatus.ok)
-        }
+                return game.save(on: req.db)
+                .flatMap {
+                    let logGameUpdate = LogGameUpdate(data: game.data, userOwnerID: game.$userOwner.id, gameID: game.id!)
+                    return logGameUpdate.save(on: req.db) }
+                .flatMap {
+                    let addWordToDB: [EventLoopFuture<Void>] = wordsData.map {
+                        Word(word: $0.word, timeGuessed: $0.timeGuessed, guessedStatus: $0.guessedStatus, gameID: game.id!).save(on: req.db)
+                    }
+                    return addWordToDB.flatten(on: req.eventLoop).map { HTTPStatus.ok }
+                }
+            }
     }
+    
     func getMyGamesList(_ req: Request) throws -> EventLoopFuture<[Game]> {
-        let userID = try req.auth.require(User.self).id
+        let userID = try req.auth.require(JWTTokenPayload.self).userID
         //return UserGame.query(on: req.db).filter(\.$user.$id == userID!).all()
         return User
             .find(userID, on: req.db)

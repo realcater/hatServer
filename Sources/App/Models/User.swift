@@ -1,7 +1,14 @@
 import Fluent
 import Vapor
+import JWT
 
 final class User: Model, Content, ModelAuthenticatable {
+    var exp: ExpirationClaim = .init(value: Date().addingTimeInterval(JWTConfig.expirationTime))
+
+    func verify(using signer: JWTSigner) throws {
+        try self.exp.verifyNotExpired()
+    }
+    
     static let schema = "users"
     static let usernameKey = \User.$name
     static let passwordHashKey = \User.$passwordHash
@@ -27,14 +34,6 @@ final class User: Model, Content, ModelAuthenticatable {
     }
 }
 
-extension User {
-    func generateToken() throws -> Token {
-        try .init(
-            value: [UInt8].random(count: 32).base64,
-            userID: self.requireID()
-        )
-    }
-}
 extension User {
     struct UserMigration: Migration {
         func prepare(on database: Database) -> EventLoopFuture<Void> {

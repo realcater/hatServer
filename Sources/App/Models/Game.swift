@@ -6,7 +6,7 @@ final class Game: Model, Content {
     
     @ID(key: .id) var id: UUID?
     @Field(key: "data") var data: Data
-    @Parent(key: "userId") var userOwner: User
+    @Parent(key: "userID") var userOwner: User
     @Siblings(through: UserGame.self, from: \.$game, to: \.$user) var users: [User]
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
     @Timestamp(key: "updatedAt", on: .update) var updatedAt: Date?
@@ -14,7 +14,7 @@ final class Game: Model, Content {
     
     init() { }
 
-    init(id: UUID? = nil, data: Data, userOwnerID: User.IDValue)//, usersID: [User.IDValue])
+    init(id: UUID? = nil, data: Data, userOwnerID: User.IDValue)
     {
         self.id = id
         self.data = data
@@ -28,7 +28,7 @@ extension Game {
             return database.schema("games")
                 .id()
                 .field("data", .data, .required)
-                .field("userId", .uuid, .required, .references("users", "id"))
+                .field("userID", .uuid, .required, .references("users", "id"))
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)
                 .field("deletedAt", .datetime)
