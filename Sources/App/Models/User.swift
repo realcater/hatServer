@@ -3,12 +3,6 @@ import Vapor
 import JWT
 
 final class User: Model, Content, ModelAuthenticatable {
-    var exp: ExpirationClaim = .init(value: Date().addingTimeInterval(JWTConfig.expirationTime))
-
-    func verify(using signer: JWTSigner) throws {
-        try self.exp.verifyNotExpired()
-    }
-    
     static let schema = "users"
     static let usernameKey = \User.$name
     static let passwordHashKey = \User.$passwordHash
@@ -29,8 +23,27 @@ final class User: Model, Content, ModelAuthenticatable {
         self.passwordHash = passwordHash
     }
     
+    final class Public: Codable, Content {
+        var id: UUID?
+        var name: String
+        
+        init(id: UUID?, name: String) {
+            self.id = id
+            self.name = name
+        }
+    }
+    
+    var exp: ExpirationClaim = .init(value: Date().addingTimeInterval(JWTConfig.expirationTime))
+
+    func verify(using signer: JWTSigner) throws {
+        try self.exp.verifyNotExpired()
+    }
+    
     func verify(password: String) throws -> Bool {
         try Bcrypt.verify(password, created: self.passwordHash)
+    }
+    func convertToPublic() -> User.Public {
+        return User.Public(id: id, name: name)
     }
 }
 

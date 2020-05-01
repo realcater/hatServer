@@ -1,3 +1,17 @@
+/*
+Non-admin requests (used in APP)
+ 
+POST
+/api/games
+/api/games/gamesID/accept
+/api/games/gamesID/update
+
+GET
+/api/games
+/api/mine
+
+ */
+
 import Fluent
 import Vapor
 

@@ -1,3 +1,16 @@
+/*
+Non-admin requests (used in APP)
+ 
+POST
+/api/users
+/api/users/login
+
+GET
+/api/users/search
+/api/users/userID
+ 
+*/
+
 import Fluent
 import Vapor
 
@@ -11,23 +24,27 @@ struct UserController: RouteCollection {
         let appAuthRoutes = userRoutes.grouped(UserAuthenticator(), AppMiddleware())
         let tokenAuthRoutes = userRoutes.grouped(UserAuthenticator(), JWTGuardMiddleware())
         
-        appAuthRoutes.post(use: create)
-        adminAuthRoutes.get(use: getAll)
         basicAuthRoutes.post("login", use: login)
+        
+        appAuthRoutes.post(use: create)
+        appAuthRoutes.get(":userID", use: searchByID)
+        
+        tokenAuthRoutes.get("search", use: searchByName)
+        
+        adminAuthRoutes.get(use: getAll)
         adminAuthRoutes.delete(":userID", use: delete)
-        tokenAuthRoutes.get("search", use: search)
     }
     
     func getAll(_ req: Request) throws -> EventLoopFuture<[User]> {
         return User.query(on: req.db).all()
     }
 
-    func create(_ req: Request) throws -> EventLoopFuture<User> {
+    func create(_ req: Request) throws -> EventLoopFuture<User.Public> {
         let userData = try req.content.decode(CreateUserData.self)
         let passwordHash = try Bcrypt.hash(userData.password)
         
-        let user = User(name: userData.name, passwordHash: passwordHash)
-        return user.save(on: req.db).map { user }
+        let user = User(id: userData.id, name: userData.name, passwordHash: passwordHash)
+        return user.save(on: req.db).map { user.convertToPublic() }
     }
 
     func delete(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
@@ -44,13 +61,20 @@ struct UserController: RouteCollection {
         return loginResponse
     }
     
-    func search(_ req: Request) throws -> EventLoopFuture<[User]> {
+    func searchByName(_ req: Request) throws -> EventLoopFuture<[User.Public]> {
         let searchRequestData = try req.content.decode(SearchRequestData.self)
-        return User.query(on: req.db).filter(\.$name, .contains(inverse: false, .prefix), searchRequestData.text).limit(searchRequestData.maxResultsQty).all()
+        return User.query(on: req.db).filter(\.$name, .contains(inverse: false, .prefix), searchRequestData.text).limit(searchRequestData.maxResultsQty).all().map { users in users.map {$0.convertToPublic()} }
+    }
+    func searchByID(_ req: Request) throws -> EventLoopFuture<User.Public> {
+        sleep(2)
+        return User.find(req.parameters.get("userID"), on: req.db)
+            .unwrap(or: Abort(.notFound))
+            .map { $0.convertToPublic() }
     }
 }
 
 struct CreateUserData: Content {
+    let id: UUID
     let name: String
     let password: String
 }
