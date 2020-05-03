@@ -55,6 +55,7 @@ struct UserController: RouteCollection {
     }
     
     func login(_ req: Request) throws -> LoginResponse {
+        sleep(1)
         let user = try req.auth.require(User.self)
         let jwtToken = try req.jwt.sign(JWTTokenPayload(userID: user.id!, userName: user.name))
         let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken)
@@ -66,7 +67,7 @@ struct UserController: RouteCollection {
         return User.query(on: req.db).filter(\.$name, .contains(inverse: false, .prefix), searchRequestData.text).limit(searchRequestData.maxResultsQty).all().map { users in users.map {$0.convertToPublic()} }
     }
     func searchByID(_ req: Request) throws -> EventLoopFuture<User.Public> {
-        sleep(2)
+        sleep(1)
         return User.find(req.parameters.get("userID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .map { $0.convertToPublic() }

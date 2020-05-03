@@ -46,7 +46,7 @@ struct GameController: RouteCollection {
         return game.save(on: req.db)
             .flatMap {
             let usersAddToGame: [EventLoopFuture<Void>] = gameData.players.map {
-                    UserGame(userID: $0.id, gameID: game.id!, accepted: false).save(on: req.db)
+                UserGame(userID: $0.id, gameID: game.id!, userOwnerID: userID!, accepted: false).save(on: req.db)
             }
             return usersAddToGame.flatten(on: req.eventLoop).map { game }
         }
@@ -68,7 +68,7 @@ struct GameController: RouteCollection {
                 guard gameData.players.map({ $0.id }).contains(userID) else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
-                return UserGame(userID: userID, gameID: game.id!, accepted: true).save(on: req.db).transform(to: .ok)
+                return UserGame(userID: userID, gameID: game.id!, userOwnerID: game.$userOwner.id, accepted: true).save(on: req.db).transform(to: .ok)
         }
     }
     
@@ -104,12 +104,20 @@ struct GameController: RouteCollection {
             }
     }
     
-    func getMyGamesList(_ req: Request) throws -> EventLoopFuture<[Game]> {
+    func getMyGamesList(_ req: Request) throws -> EventLoopFuture<[Game.Public]> {
+        sleep(1)
         let userID = try req.auth.require(JWTTokenPayload.self).userID
-        //return UserGame.query(on: req.db).filter(\.$user.$id == userID!).all()
         return User
             .find(userID, on: req.db)
             .unwrap(or: Abort(.notFound))
-            .flatMap { $0.$games.query(on: req.db).all() }
+            .flatMap { $0.$games.query(on: req.db).with(\.$userOwner).all()
+            .map { $0.map {
+                Game.Public(gameID: $0.id!, userOwnerName: $0.userOwner.name, createdAt: $0.createdAt!)
+                }
+            }
+        }
     }
 }
+
+
+

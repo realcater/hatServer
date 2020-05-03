@@ -19,7 +19,17 @@ final class Game: Model, Content {
         self.id = id
         self.data = data
         self.$userOwner.id = userOwnerID
+    }
+    final class Public: Codable, Content {
+        var gameID: UUID
+        var userOwnerName: String
+        var createdAt: Date
         
+        init(gameID: UUID, userOwnerName: String, createdAt: Date) {
+            self.gameID = gameID
+            self.userOwnerName = userOwnerName
+            self.createdAt = createdAt
+        }
     }
 }
 extension Game {
