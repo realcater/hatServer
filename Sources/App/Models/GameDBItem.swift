@@ -1,7 +1,7 @@
 import Fluent
 import Vapor
 
-final class Game: Model, Content {
+final class GameDBItem: Model, Content {
     static let schema = "games"
     
     @ID(key: .id) var id: UUID?
@@ -32,7 +32,7 @@ final class Game: Model, Content {
         }
     }
 }
-extension Game {
+extension GameDBItem {
     struct GameMigration: Migration {
         func prepare(on database: Database) -> EventLoopFuture<Void> {
             return database.schema("games")
