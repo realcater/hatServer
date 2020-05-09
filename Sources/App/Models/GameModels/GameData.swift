@@ -6,8 +6,16 @@ struct UpdateData: Codable, Content {
     var wordsData: [WordData]
 }
 
+struct GameSettings: Codable {
+    var difficulty: GameDifficulty
+    var wordsQty: Int
+    var roundDuration: Int
+}
+
 struct GameData: Codable, Content {
     var players: [Player]
+    var settings: GameSettings
+    var gameDifficulty: GameDifficulty
     var leftWords: [String]
     var guessedWords: [String]
     var missedWords: [String]
@@ -33,6 +41,18 @@ enum GuessedStatus: Int, Codable  {
     case guessed
     case left
     case missed
+}
+
+enum GameDifficulty: Int, Codable {
+    case veryEasy
+    case easy
+    case normal
+    case hard
+    case veryHard
+    case separator1
+    case easyMix
+    case normalMix
+    case hardMix
 }
 
 final class Player: Codable {

@@ -32,7 +32,7 @@ final class Game: Model, Content {
         }
     }
 }
-extension GameData {
+extension Game {
     struct GameMigration: Migration {
         func prepare(on database: Database) -> EventLoopFuture<Void> {
             return database.schema("games")
