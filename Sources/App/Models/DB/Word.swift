@@ -6,7 +6,7 @@ final class Word: Model, Content {
     
     @ID(key: .id) var id: UUID?
     @Field(key: "word") var word: String
-    @Field(key: "timeGuessed") var timeGuessed: Double
+    @Field(key: "timeGuessed") var timeGuessed: Int
     @Field(key: "guessedStatus") var guessedStatus: GuessedStatus
     @Parent(key: "gameID") var game: Game
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
@@ -15,7 +15,7 @@ final class Word: Model, Content {
     
     init() { }
 
-    init(id: UUID? = nil, word: String, timeGuessed: Double, guessedStatus: GuessedStatus, gameID: Game.IDValue)
+    init(id: UUID? = nil, word: String, timeGuessed: Int, guessedStatus: GuessedStatus, gameID: Game.IDValue)
     {
         self.id = id
         self.word = word

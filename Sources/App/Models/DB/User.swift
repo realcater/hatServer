@@ -9,6 +9,7 @@ final class User: Model, Content, ModelAuthenticatable {
     
     @ID(key: .id) var id: UUID?
     @Field(key: "name") var name: String
+    @Field(key: "upperName") var upperName: String
     @Field(key: "passwordHash") var passwordHash: String
     @Siblings(through: UserGame.self, from: \.$user, to: \.$game) var games: [Game]
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
@@ -20,6 +21,7 @@ final class User: Model, Content, ModelAuthenticatable {
     init(id: UUID? = nil, name: String, passwordHash: String) {
         self.id = id
         self.name = name
+        self.upperName = name.uppercased()
         self.passwordHash = passwordHash
     }
     
@@ -53,11 +55,13 @@ extension User {
             return database.schema("users")
                 .id()
                 .field("name", .string, .required)
+                .field("upperName", .string, .required)
                 .field("passwordHash", .string, .required)
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)
                 .field("deletedAt", .datetime)
                 .unique(on: "name")
+                .unique(on: "upperName")
                 .create()
         }
 

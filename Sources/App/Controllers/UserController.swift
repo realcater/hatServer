@@ -12,7 +12,9 @@ GET
 */
 
 import Fluent
+import FluentSQL
 import Vapor
+
 
 struct UserController: RouteCollection {
     
@@ -29,7 +31,7 @@ struct UserController: RouteCollection {
         appAuthRoutes.post(use: create)
         appAuthRoutes.get(":userID", use: searchByID)
         
-        tokenAuthRoutes.get("search", use: searchByName)
+        tokenAuthRoutes.post("search", use: searchByName)
         
         adminAuthRoutes.get(use: getAll)
         adminAuthRoutes.delete(":userID", use: delete)
@@ -55,23 +57,22 @@ struct UserController: RouteCollection {
     }
     
     func login(_ req: Request) throws -> LoginResponse {
-        sleep(1)
         let user = try req.auth.require(User.self)
         let jwtToken = try req.jwt.sign(JWTTokenPayload(userID: user.id!, userName: user.name))
         let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken)
         return loginResponse
     }
-    
+    // .sql(raw: "ILIKE") .contains(inverse: false, .prefix) /*.custom("ilike"),*/
     func searchByName(_ req: Request) throws -> EventLoopFuture<[User.Public]> {
         let searchRequestData = try req.content.decode(SearchRequestData.self)
-        return User.query(on: req.db).filter(\.$name, .contains(inverse: false, .prefix), searchRequestData.text).limit(searchRequestData.maxResultsQty).all().map { users in users.map {$0.convertToPublic()} }
+        return User.query(on: req.db).filter(\.$upperName, .contains(inverse: false, .prefix), searchRequestData.text.uppercased()).filter(\.$name != "admin").filter(\.$name != "app").limit(searchRequestData.maxResultsQty).all().map { users in users.map { $0.convertToPublic() } }
     }
     func searchByID(_ req: Request) throws -> EventLoopFuture<User.Public> {
-        sleep(1)
         return User.find(req.parameters.get("userID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .map { $0.convertToPublic() }
     }
+
 }
 
 struct CreateUserData: Content {
@@ -89,5 +90,10 @@ struct LoginResponse: Content {
 struct SearchRequestData: Content {
     let text: String
     let maxResultsQty: Int
+}
+
+struct UserTime: Content {
+    let id: UUID
+    let lastTimeOnline: Date
 }
 

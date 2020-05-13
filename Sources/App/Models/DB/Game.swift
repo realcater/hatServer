@@ -31,6 +31,15 @@ final class Game: Model, Content {
             self.createdAt = createdAt
         }
     }
+    final class UUIDOnly: Codable, Content {
+        var gameID: UUID
+        init(gameID: UUID) {
+            self.gameID = gameID
+        }
+    }
+    func convertToUUIDOnly() -> UUIDOnly {
+        return UUIDOnly(gameID: self.id!)
+    }
 }
 extension Game {
     struct GameMigration: Migration {

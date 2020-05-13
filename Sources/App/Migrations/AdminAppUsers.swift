@@ -8,9 +8,7 @@ struct AdminUser: Migration {
             return Abort(.badRequest, reason: "There is no ADMIN_PASSWORD") as! EventLoopFuture<Void>
         }
         do {
-            let adminUser = User()
-            adminUser.name = "admin"
-            adminUser.passwordHash = try Bcrypt.hash(adminPassword)
+            let adminUser = User(name: "admin", passwordHash: try Bcrypt.hash(adminPassword))
             return adminUser.save(on: database)
         } catch {
             print("Error hash-making")
@@ -29,9 +27,7 @@ struct AppUser: Migration {
             return Abort(.badRequest, reason: "There is no APP_PASSWORD") as! EventLoopFuture<Void>
         }
         do {
-            let adminUser = User()
-            adminUser.name = "app"
-            adminUser.passwordHash = try Bcrypt.hash(adminPassword)
+            let adminUser = User(name: "app", passwordHash: try Bcrypt.hash(adminPassword))
             return adminUser.save(on: database)
         } catch {
             print("Error hash-making")
