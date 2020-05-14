@@ -6,6 +6,9 @@ final class Game: Model, Content {
     
     @ID(key: .id) var id: UUID?
     @Field(key: "data") var data: Data
+    @Field(key: "turn") var turn: Int
+    @Field(key: "guessedThisTurn") var guessedThisTurn: Int
+    @Field(key: "explainTime") var explainTime: Date
     @Parent(key: "userID") var userOwner: User
     @Siblings(through: UserGame.self, from: \.$game, to: \.$user) var users: [User]
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
@@ -18,6 +21,9 @@ final class Game: Model, Content {
     {
         self.id = id
         self.data = data
+        self.guessedThisTurn = 0
+        self.turn = 0
+        self.explainTime = Date().addingTimeInterval(-100000)
         self.$userOwner.id = userOwnerID
     }
     final class Public: Codable, Content {
@@ -47,6 +53,9 @@ extension Game {
             return database.schema("games")
                 .id()
                 .field("data", .data, .required)
+                .field("turn", .int)
+                .field("guessedThisTurn", .int)
+                .field("explainTime", .datetime)
                 .field("userID", .uuid, .required, .references("users", "id"))
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)

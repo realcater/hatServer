@@ -30,7 +30,9 @@ struct GameController: RouteCollection {
         tokenAuthRoutes.post(":gameID","accept", use: acceptGame)
         tokenAuthRoutes.post(":gameID","reject", use: rejectGame)
         tokenAuthRoutes.get(":gameID", use: getGameData)
+        tokenAuthRoutes.get(":gameID", "frequent", use: getFrequentGameData)
         tokenAuthRoutes.post(":gameID","update", use: updateGame)
+        tokenAuthRoutes.post(":gameID","updatefrequent", use: updateFrequent)
         tokenAuthRoutes.get("mine", use: getMyGamesList)
         tokenAuthRoutes.get(":gameID", "players", use: getPlayersStatus)
     }
@@ -93,6 +95,12 @@ struct GameController: RouteCollection {
                 return gameData }
     }
     
+    func getFrequentGameData(_ req: Request) throws -> EventLoopFuture<FrequentGameData> {
+        return Game.find(req.parameters.get("gameID"), on: req.db)
+            .unwrap(or: Abort(.notFound)).map {
+                return FrequentGameData(explainTime: $0.explainTime, turn: $0.turn, guessedThisTurn: $0.guessedThisTurn)
+                }
+    }
     
     
     func updateGame(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
@@ -107,6 +115,9 @@ struct GameController: RouteCollection {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
                 game.data = try! JSONEncoder().encode(gameData)
+                game.turn = gameData.turn
+                game.guessedThisTurn = gameData.guessedThisTurn
+                game.explainTime = gameData.explainTime
                 return game.save(on: req.db)
                 .flatMap {
                     let logGameUpdate = LogGameUpdate(data: game.data, userOwnerID: game.$userOwner.id, gameID: game.id!)
@@ -118,6 +129,16 @@ struct GameController: RouteCollection {
                     return addWordToDB.flatten(on: req.eventLoop).map { HTTPStatus.ok }
                 }
             }
+    }
+    
+    func updateFrequent(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let frequentGameData = try req.content.decode(FrequentGameData.self)
+        return Game.find(req.parameters.get("gameID"), on: req.db)
+            .unwrap(or: Abort(.notFound)).flatMap { game in
+                game.guessedThisTurn = frequentGameData.guessedThisTurn
+                game.explainTime = frequentGameData.explainTime
+                return game.save(on: req.db).transform(to: .ok)
+        }
     }
     
     func getPlayersStatus(_ req: Request) throws -> EventLoopFuture<[PlayerStatus]> {
@@ -160,5 +181,8 @@ struct WordData: Codable, Content {
     var guessedStatus: GuessedStatus
 }
 
-
-
+struct FrequentGameData: Codable, Content {
+    var explainTime: Date
+    var turn: Int
+    var guessedThisTurn: Int
+}
