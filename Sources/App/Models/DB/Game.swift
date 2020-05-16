@@ -29,11 +29,13 @@ final class Game: Model, Content {
     final class Public: Codable, Content {
         var gameID: UUID
         var userOwnerName: String
+        var turn: Int
         var createdAt: Date
         
-        init(gameID: UUID, userOwnerName: String, createdAt: Date) {
+        init(gameID: UUID, userOwnerName: String, turn: Int, createdAt: Date) {
             self.gameID = gameID
             self.userOwnerName = userOwnerName
+            self.turn = turn
             self.createdAt = createdAt
         }
     }

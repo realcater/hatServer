@@ -24,7 +24,7 @@ struct GameController: RouteCollection {
         let adminAuthRoutes = gameRoutes.grouped(UserAuthenticator(), AdminMiddleware())
         
         adminAuthRoutes.get(use: getAll)
-        adminAuthRoutes.delete(":gameID", use: delete)
+        tokenAuthRoutes.delete(":gameID", use: delete)
         
         tokenAuthRoutes.post(use: create)
         tokenAuthRoutes.post(":gameID","accept", use: acceptGame)
@@ -58,11 +58,19 @@ struct GameController: RouteCollection {
     }
 
     func delete(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let userID = try req.auth.require(JWTTokenPayload.self).userID
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound))
-            .flatMap { $0.delete(on: req.db) }
-            .transform(to: .ok)
+            .flatMap { game in
+                guard game.$userOwner.id == userID else {
+                    return req.eventLoop.makeFailedFuture(Abort(.forbidden))
+                }
+                print("=======DELETE===========")
+                return game.delete(on: req.db).transform(to: .ok)
+            }
     }
+    
+    
     
     func acceptGame(_ req: Request) throws -> EventLoopFuture<GameData>{
         let userID = try req.auth.require(JWTTokenPayload.self).userID
@@ -130,12 +138,13 @@ struct GameController: RouteCollection {
                 }
             }
     }
-    
+        
     func updateFrequent(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
         let frequentGameData = try req.content.decode(FrequentGameData.self)
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound)).flatMap { game in
                 game.guessedThisTurn = frequentGameData.guessedThisTurn
+                game.turn = frequentGameData.turn
                 game.explainTime = frequentGameData.explainTime
                 return game.save(on: req.db).transform(to: .ok)
         }
@@ -160,9 +169,11 @@ struct GameController: RouteCollection {
         return User
             .find(userID, on: req.db)
             .unwrap(or: Abort(.notFound))
-            .flatMap { $0.$games.query(on: req.db).sort(\.$createdAt, .descending).with(\.$userOwner).all()
+            .flatMap { $0.$games.query(on: req.db).sort(\.$createdAt, .descending).with(\.$userOwner).group(.or) {
+                $0.filter(\.$turn != -1).filter(\.$updatedAt >= Date().addingTimeInterval(-3600) )
+                }.all()
             .map { $0.map {
-                Game.Public(gameID: $0.id!, userOwnerName: $0.userOwner.name, createdAt: $0.createdAt!)
+                Game.Public(gameID: $0.id!, userOwnerName: $0.userOwner.name, turn: $0.turn, createdAt: $0.createdAt!)
                 }
             }
         }
