@@ -10,10 +10,7 @@ final class GameData: Codable, Content {
     var basketWords: [String]
     var basketStatus: [GuessedStatus]
     var currentWord: String
-    var turn: Int
-    var explainTime: Date
     var wordsData: [WordData] = []
-    var guessedThisTurn: Int
 }
 
 

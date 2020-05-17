@@ -29,10 +29,10 @@ struct GameController: RouteCollection {
         tokenAuthRoutes.post(use: create)
         tokenAuthRoutes.post(":gameID","accept", use: acceptGame)
         tokenAuthRoutes.post(":gameID","reject", use: rejectGame)
-        tokenAuthRoutes.get(":gameID", use: getGameData)
-        tokenAuthRoutes.get(":gameID", "frequent", use: getFrequentGameData)
-        tokenAuthRoutes.post(":gameID","update", use: updateGame)
-        tokenAuthRoutes.post(":gameID","updatefrequent", use: updateFrequent)
+        tokenAuthRoutes.get(":gameID", use: getFullData)
+        tokenAuthRoutes.get(":gameID", "frequent", use: getFrequentData)
+        tokenAuthRoutes.post(":gameID","update", use: updateFullData)
+        tokenAuthRoutes.post(":gameID","updatefrequent", use: updateFrequentData)
         tokenAuthRoutes.get("mine", use: getMyGamesList)
         tokenAuthRoutes.get(":gameID", "players", use: getPlayersStatus)
     }
@@ -65,24 +65,20 @@ struct GameController: RouteCollection {
                 guard game.$userOwner.id == userID else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
-                print("=======DELETE===========")
                 return game.delete(on: req.db).transform(to: .ok)
             }
     }
     
-    
-    
-    func acceptGame(_ req: Request) throws -> EventLoopFuture<GameData>{
+    func acceptGame(_ req: Request) throws -> EventLoopFuture<Game.Full>{
         let userID = try req.auth.require(JWTTokenPayload.self).userID
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { game in
-                let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
                 return UserGame.query(on: req.db).filter(\.$game.$id == game.id!).filter(\.$user.$id == userID).first().unwrap(or: Abort(.notFound))
                     .flatMap { userGame in
                         userGame.accepted = true
                         return userGame.update(on: req.db)
-                            .map { return gameData }
+                            .map { return game.convertToFull() }
                 }
             }
     }
@@ -96,39 +92,34 @@ struct GameController: RouteCollection {
             }
     }
     
-    func getGameData(_ req: Request) throws -> EventLoopFuture<GameData> {
+    func getFullData(_ req: Request) throws -> EventLoopFuture<Game.Full> {
         return Game.find(req.parameters.get("gameID"), on: req.db)
-            .unwrap(or: Abort(.notFound)).map { game in
-                let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
-                return gameData }
+            .unwrap(or: Abort(.notFound)).map { $0.convertToFull() }
+    }
+    func getFrequentData(_ req: Request) throws -> EventLoopFuture<Game.Frequent> {
+        return Game.find(req.parameters.get("gameID"), on: req.db)
+            .unwrap(or: Abort(.notFound)).map { $0.convertToFrequent() }
     }
     
-    func getFrequentGameData(_ req: Request) throws -> EventLoopFuture<FrequentGameData> {
-        return Game.find(req.parameters.get("gameID"), on: req.db)
-            .unwrap(or: Abort(.notFound)).map {
-                return FrequentGameData(explainTime: $0.explainTime, turn: $0.turn, guessedThisTurn: $0.guessedThisTurn)
-                }
-    }
-    
-    
-    func updateGame(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+    func updateFullData(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
         let userID = try req.auth.require(JWTTokenPayload.self).userID
-        let gameData = try req.content.decode(GameData.self)
-        let wordsData = gameData.wordsData
-        
+        let updateData = try req.content.decode(Game.Full.self)
+        let wordsData = updateData.data.wordsData
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { game in
+                let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
                 guard gameData.players.map({ $0.id }).contains(userID) else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
                 }
-                game.data = try! JSONEncoder().encode(gameData)
-                game.turn = gameData.turn
-                game.guessedThisTurn = gameData.guessedThisTurn
-                game.explainTime = gameData.explainTime
+                game.turn = updateData.turn
+                game.guessedThisTurn = updateData.guessedThisTurn
+                game.explainTime = updateData.explainTime
+                game.data = try! JSONEncoder().encode(updateData.data)
                 return game.save(on: req.db)
                 .flatMap {
-                    let logGameUpdate = LogGameUpdate(data: game.data, userOwnerID: game.$userOwner.id, gameID: game.id!)
+                    let data =  try! JSONEncoder().encode(updateData)
+                    let logGameUpdate = LogGameUpdate(game: data, userID: userID)
                     return logGameUpdate.save(on: req.db) }
                 .flatMap {
                     let addWordToDB: [EventLoopFuture<Void>] = wordsData.map {
@@ -138,18 +129,18 @@ struct GameController: RouteCollection {
                 }
             }
     }
-        
-    func updateFrequent(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
-        let frequentGameData = try req.content.decode(FrequentGameData.self)
+
+    func updateFrequentData(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let frequent = try req.content.decode(Game.Frequent.self)
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound)).flatMap { game in
-                game.guessedThisTurn = frequentGameData.guessedThisTurn
-                game.turn = frequentGameData.turn
-                game.explainTime = frequentGameData.explainTime
+                game.guessedThisTurn = frequent.guessedThisTurn
+                game.turn = frequent.turn
+                game.explainTime = frequent.explainTime
                 return game.save(on: req.db).transform(to: .ok)
         }
     }
-    
+
     func getPlayersStatus(_ req: Request) throws -> EventLoopFuture<[PlayerStatus]> {
         let userID = try req.auth.require(JWTTokenPayload.self).userID
         guard let uuidString = req.parameters.get("gameID"), let gameID = UUID(uuidString: uuidString) else { throw Abort(.notFound) }
@@ -163,8 +154,7 @@ struct GameController: RouteCollection {
                 }
         }
     }
-    
-    func getMyGamesList(_ req: Request) throws -> EventLoopFuture<[Game.Public]> {
+    func getMyGamesList(_ req: Request) throws -> EventLoopFuture<[Game.ListElement]> {
         let userID = try req.auth.require(JWTTokenPayload.self).userID
         return User
             .find(userID, on: req.db)
@@ -172,11 +162,8 @@ struct GameController: RouteCollection {
             .flatMap { $0.$games.query(on: req.db).sort(\.$createdAt, .descending).with(\.$userOwner).group(.or) {
                 $0.filter(\.$turn != -1).filter(\.$updatedAt >= Date().addingTimeInterval(-3600) )
                 }.all()
-            .map { $0.map {
-                Game.Public(gameID: $0.id!, userOwnerName: $0.userOwner.name, turn: $0.turn, createdAt: $0.createdAt!)
-                }
+            .map { $0.map { $0.convertToListElement() }}
             }
-        }
     }
 }
 
@@ -190,10 +177,4 @@ struct WordData: Codable, Content {
     var word: String
     var timeGuessed: Int
     var guessedStatus: GuessedStatus
-}
-
-struct FrequentGameData: Codable, Content {
-    var explainTime: Date
-    var turn: Int
-    var guessedThisTurn: Int
 }

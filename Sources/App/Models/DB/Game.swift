@@ -26,19 +26,24 @@ final class Game: Model, Content {
         self.explainTime = Date().addingTimeInterval(-100000)
         self.$userOwner.id = userOwnerID
     }
-    final class Public: Codable, Content {
-        var gameID: UUID
+    
+    final class ListElement: Codable, Content {
+        var id: UUID
         var userOwnerName: String
         var turn: Int
         var createdAt: Date
         
-        init(gameID: UUID, userOwnerName: String, turn: Int, createdAt: Date) {
-            self.gameID = gameID
+        init(id: UUID, userOwnerName: String, turn: Int, createdAt: Date) {
+            self.id = id
             self.userOwnerName = userOwnerName
             self.turn = turn
             self.createdAt = createdAt
         }
     }
+    func convertToListElement() -> ListElement {
+        return ListElement(id: id!, userOwnerName: userOwner.name, turn: turn, createdAt: createdAt!)
+    }
+    
     final class UUIDOnly: Codable, Content {
         var gameID: UUID
         init(gameID: UUID) {
@@ -48,6 +53,44 @@ final class Game: Model, Content {
     func convertToUUIDOnly() -> UUIDOnly {
         return UUIDOnly(gameID: self.id!)
     }
+    
+    final class Frequent: Codable, Content {
+        internal init(turn: Int, guessedThisTurn: Int, explainTime: Date) {
+            self.turn = turn
+            self.guessedThisTurn = guessedThisTurn
+            self.explainTime = explainTime
+        }
+        
+        var turn: Int
+        var guessedThisTurn: Int
+        var explainTime: Date
+    }
+    func convertToFrequent() -> Frequent {
+        return Frequent(turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime)
+    }
+    
+    
+    final class Full: Codable, Content {
+        internal init(id: UUID, data: GameData, userOwnerID: UUID, turn: Int, guessedThisTurn: Int, explainTime: Date) {
+            self.id = id
+            self.data = data
+            self.userOwnerID = userOwnerID
+            self.turn = turn
+            self.guessedThisTurn = guessedThisTurn
+            self.explainTime = explainTime
+        }
+        
+        var id: UUID
+        var data: GameData
+        var userOwnerID: UUID
+        var turn: Int
+        var guessedThisTurn: Int
+        var explainTime: Date
+    }
+    func convertToFull() -> Full {
+        let gameData = try! JSONDecoder().decode(GameData.self, from: data)
+        return Full(id: id!, data: gameData, userOwnerID: $userOwner.id, turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime)
+    }
 }
 extension Game {
     struct GameMigration: Migration {
@@ -55,9 +98,9 @@ extension Game {
             return database.schema("games")
                 .id()
                 .field("data", .data, .required)
-                .field("turn", .int)
-                .field("guessedThisTurn", .int)
-                .field("explainTime", .datetime)
+                .field("turn", .int, .required)
+                .field("guessedThisTurn", .int, .required)
+                .field("explainTime", .datetime, .required)
                 .field("userID", .uuid, .required, .references("users", "id"))
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)
