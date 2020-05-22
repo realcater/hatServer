@@ -9,6 +9,7 @@ final class Game: Model, Content {
     @Field(key: "turn") var turn: Int
     @Field(key: "guessedThisTurn") var guessedThisTurn: Int
     @Field(key: "explainTime") var explainTime: Date
+    @Field(key: "basketChange") var basketChange: Int
     @Parent(key: "userID") var userOwner: User
     @Siblings(through: UserGame.self, from: \.$game, to: \.$user) var users: [User]
     @Timestamp(key: "createdAt", on: .create) var createdAt: Date?
@@ -23,6 +24,7 @@ final class Game: Model, Content {
         self.data = data
         self.guessedThisTurn = 0
         self.turn = 0
+        self.basketChange = 0
         self.explainTime = Date().addingTimeInterval(-100000)
         self.$userOwner.id = userOwnerID
     }
@@ -55,29 +57,32 @@ final class Game: Model, Content {
     }
     
     final class Frequent: Codable, Content {
-        internal init(turn: Int, guessedThisTurn: Int, explainTime: Date) {
+        internal init(turn: Int, guessedThisTurn: Int, explainTime: Date, basketChange: Int) {
             self.turn = turn
             self.guessedThisTurn = guessedThisTurn
             self.explainTime = explainTime
+            self.basketChange = basketChange
         }
         
         var turn: Int
         var guessedThisTurn: Int
         var explainTime: Date
+        var basketChange: Int
     }
     func convertToFrequent() -> Frequent {
-        return Frequent(turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime)
+        return Frequent(turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime, basketChange: basketChange)
     }
     
     
     final class Full: Codable, Content {
-        internal init(id: UUID, data: GameData, userOwnerID: UUID, turn: Int, guessedThisTurn: Int, explainTime: Date) {
+        internal init(id: UUID, data: GameData, userOwnerID: UUID, turn: Int, guessedThisTurn: Int, explainTime: Date, basketChange: Int) {
             self.id = id
             self.data = data
             self.userOwnerID = userOwnerID
             self.turn = turn
             self.guessedThisTurn = guessedThisTurn
             self.explainTime = explainTime
+            self.basketChange = basketChange
         }
         
         var id: UUID
@@ -86,10 +91,11 @@ final class Game: Model, Content {
         var turn: Int
         var guessedThisTurn: Int
         var explainTime: Date
+        var basketChange: Int
     }
     func convertToFull() -> Full {
         let gameData = try! JSONDecoder().decode(GameData.self, from: data)
-        return Full(id: id!, data: gameData, userOwnerID: $userOwner.id, turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime)
+        return Full(id: id!, data: gameData, userOwnerID: $userOwner.id, turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime, basketChange: basketChange)
     }
 }
 extension Game {
@@ -101,6 +107,7 @@ extension Game {
                 .field("turn", .int, .required)
                 .field("guessedThisTurn", .int, .required)
                 .field("explainTime", .datetime, .required)
+                .field("basketChange", .int, .required)
                 .field("userID", .uuid, .required, .references("users", "id"))
                 .field("createdAt", .datetime)
                 .field("updatedAt", .datetime)

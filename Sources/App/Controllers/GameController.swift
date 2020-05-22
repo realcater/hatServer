@@ -16,7 +16,7 @@ import Fluent
 import Vapor
 
 struct GameController: RouteCollection {
-    
+    let delay: UInt32 = 0
     func boot(routes: RoutesBuilder) throws {
         let gameRoutes = routes.grouped("api", "games")
        
@@ -93,21 +93,30 @@ struct GameController: RouteCollection {
     }
     
     func getFullData(_ req: Request) throws -> EventLoopFuture<Game.Full> {
+        sleep(delay)
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound)).map { $0.convertToFull() }
     }
     func getFrequentData(_ req: Request) throws -> EventLoopFuture<Game.Frequent> {
-        return Game.find(req.parameters.get("gameID"), on: req.db)
-            .unwrap(or: Abort(.notFound)).map { $0.convertToFrequent() }
+        sleep(delay)
+        let userID = try req.auth.require(JWTTokenPayload.self).userID
+        let gameID = UUID(uuidString: req.parameters.get("gameID")!)
+        return UserGame.query(on: req.db).filter(\.$game.$id == gameID!).filter(\.$user.$id == userID).first().map { $0?.update(on: req.db) }
+            .flatMap { _ in
+                return Game.find(gameID, on: req.db)
+                    .unwrap(or: Abort(.notFound)).map { $0.convertToFrequent() }
+            }
     }
     
     func updateFullData(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        sleep(delay)
         let userID = try req.auth.require(JWTTokenPayload.self).userID
         let updateData = try req.content.decode(Game.Full.self)
         let wordsData = updateData.data.wordsData
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { game in
+                guard game.turn != -1 else { return req.eventLoop.makeSucceededFuture(HTTPStatus.imUsed) }
                 let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
                 guard gameData.players.map({ $0.id }).contains(userID) else {
                     return req.eventLoop.makeFailedFuture(Abort(.forbidden))
@@ -115,6 +124,7 @@ struct GameController: RouteCollection {
                 game.turn = updateData.turn
                 game.guessedThisTurn = updateData.guessedThisTurn
                 game.explainTime = updateData.explainTime
+                game.basketChange = updateData.basketChange
                 game.data = try! JSONEncoder().encode(updateData.data)
                 return game.save(on: req.db)
                 .flatMap {
@@ -131,12 +141,15 @@ struct GameController: RouteCollection {
     }
 
     func updateFrequentData(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        sleep(delay)
         let frequent = try req.content.decode(Game.Frequent.self)
         return Game.find(req.parameters.get("gameID"), on: req.db)
             .unwrap(or: Abort(.notFound)).flatMap { game in
+                guard game.turn != -1 else { return req.eventLoop.makeSucceededFuture(HTTPStatus.imUsed) }
                 game.guessedThisTurn = frequent.guessedThisTurn
                 game.turn = frequent.turn
                 game.explainTime = frequent.explainTime
+                game.basketChange = frequent.basketChange
                 return game.save(on: req.db).transform(to: .ok)
         }
     }
@@ -160,7 +173,7 @@ struct GameController: RouteCollection {
             .find(userID, on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { $0.$games.query(on: req.db).sort(\.$createdAt, .descending).with(\.$userOwner).group(.or) {
-                $0.filter(\.$turn != -1).filter(\.$updatedAt >= Date().addingTimeInterval(-3600) )
+                $0.filter(\.$turn != -1).filter(\.$updatedAt >= Date().addingTimeInterval(-1800) )
                 }.all()
             .map { $0.map { $0.convertToListElement() }}
             }
