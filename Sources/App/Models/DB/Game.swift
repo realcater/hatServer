@@ -47,13 +47,13 @@ final class Game: Model, Content {
     }
     
     final class UUIDOnly: Codable, Content {
-        var gameID: UUID
-        init(gameID: UUID) {
-            self.gameID = gameID
+        var id: UUID
+        init(id: UUID) {
+            self.id = id
         }
     }
     func convertToUUIDOnly() -> UUIDOnly {
-        return UUIDOnly(gameID: self.id!)
+        return UUIDOnly(id: self.id!)
     }
     
     final class Frequent: Codable, Content {

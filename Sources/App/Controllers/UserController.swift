@@ -29,8 +29,9 @@ struct UserController: RouteCollection {
         basicAuthRoutes.post("login", use: login)
         
         appAuthRoutes.post(use: create)
-        appAuthRoutes.get(":userID", use: searchByID)
-        
+        appAuthRoutes.get(":userID", use: get)
+
+        tokenAuthRoutes.post("changeName", use: changeName)
         tokenAuthRoutes.post("search", use: searchByName)
         
         adminAuthRoutes.get(use: getAll)
@@ -41,12 +42,35 @@ struct UserController: RouteCollection {
         return User.query(on: req.db).all()
     }
 
-    func create(_ req: Request) throws -> EventLoopFuture<User.Public> {
+    func create(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
         let userData = try req.content.decode(CreateUserData.self)
         let passwordHash = try Bcrypt.hash(userData.password)
-        
         let user = User(id: userData.id, name: userData.name, passwordHash: passwordHash)
-        return user.save(on: req.db).map { user.convertToPublic() }
+        return User.query(on: req.db).filter(\.$upperName == userData.name.uppercased()).count()
+            .flatMap { count in
+                guard count == 0 else {
+                    return req.eventLoop.future(error: Abort(.conflict))
+                }
+                return user.save(on: req.db).transform(to: .ok)
+            }
+    }
+    
+    func changeName(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let userID = try? req.auth.require(JWTTokenPayload.self).userID
+        let data = try req.content.decode(UpdateUserData.self)
+        
+        return User.find(userID, on: req.db).unwrap(or: Abort(.notFound))
+            .flatMap { user in
+                return User.query(on: req.db).filter(\.$upperName == data.newName.uppercased()).count()
+                .flatMap { count in
+                    guard count == 0 else {
+                        return req.eventLoop.future(error: Abort(.conflict))
+                    }
+                    user.name = data.newName
+                    user.upperName = data.newName.uppercased()
+                    return user.save(on: req.db).transform(to: .ok)
+                }
+            }
     }
 
     func delete(_ req: Request) throws -> EventLoopFuture<HTTPStatus> {
@@ -59,15 +83,16 @@ struct UserController: RouteCollection {
     func login(_ req: Request) throws -> LoginResponse {
         let user = try req.auth.require(User.self)
         let jwtToken = try req.jwt.sign(JWTTokenPayload(userID: user.id!, userName: user.name))
+        print("==========\n\(jwtToken)\n==========")
         let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken)
         return loginResponse
     }
-    // .sql(raw: "ILIKE") .contains(inverse: false, .prefix) /*.custom("ilike"),*/
+
     func searchByName(_ req: Request) throws -> EventLoopFuture<[User.Public]> {
         let searchRequestData = try req.content.decode(SearchRequestData.self)
         return User.query(on: req.db).filter(\.$upperName, .contains(inverse: false, .prefix), searchRequestData.text.uppercased()).filter(\.$name != "admin").filter(\.$name != "app").limit(searchRequestData.maxResultsQty).all().map { users in users.map { $0.convertToPublic() } }
     }
-    func searchByID(_ req: Request) throws -> EventLoopFuture<User.Public> {
+    func get(_ req: Request) throws -> EventLoopFuture<User.Public> {
         return User.find(req.parameters.get("userID"), on: req.db)
             .unwrap(or: Abort(.notFound))
             .map { $0.convertToPublic() }
@@ -79,6 +104,10 @@ struct CreateUserData: Content {
     let id: UUID
     let name: String
     let password: String
+}
+
+struct UpdateUserData: Content {
+    let newName: String
 }
 
 struct LoginResponse: Content {

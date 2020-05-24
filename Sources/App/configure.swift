@@ -20,9 +20,11 @@ public func configure(_ app: Application) throws {
     app.migrations.add(UserGame.UserGameMigration())
     app.migrations.add(LogGameUpdate.LogGameUpdateMigration())
     app.migrations.add(Word.WordMigration())
+    app.migrations.add(ClientSettings.ClientSettingsMigration())
     
     app.migrations.add(AdminUser())
     app.migrations.add(AppUser())
+    app.migrations.add(ClientSettingsInit())
 
     // register routes
     try routes(app)

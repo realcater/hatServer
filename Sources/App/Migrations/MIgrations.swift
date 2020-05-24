@@ -38,3 +38,13 @@ struct AppUser: Migration {
         return Abort(.badRequest, reason: "No revert") as! EventLoopFuture<Void>
     }
 }
+
+struct ClientSettingsInit: Migration {
+    func prepare(on database: Database) -> EventLoopFuture<Void> {
+        let settings = ClientSettings(updatePlayersStatus: 5.0, updateGameList: 5.0, checkOffline: 10.0, updateFrequent: 1.0, updateFullTillNextTry: 1.0)
+        return settings.save(on: database)
+    }
+    func revert(on database: Database) -> EventLoopFuture<Void> {
+        return Abort(.badRequest, reason: "No revert") as! EventLoopFuture<Void>
+    }
+}
