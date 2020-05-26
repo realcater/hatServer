@@ -1,16 +1,3 @@
-/*
-Non-admin requests (used in APP)
- 
-POST
-/api/users
-/api/users/login
-
-GET
-/api/users/search
-/api/users/userID
- 
-*/
-
 import Fluent
 import FluentSQL
 import Vapor
