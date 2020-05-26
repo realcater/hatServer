@@ -4,38 +4,34 @@ import Vapor
 struct AdminUser: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         guard let adminPassword = Environment.get("ADMIN_PASSWORD") else {
-            print("There is no ADMIN_PASSWORD")
-            return Abort(.badRequest, reason: "There is no ADMIN_PASSWORD") as! EventLoopFuture<Void>
+            fatalError("There is no ADMIN_PASSWORD")
         }
         do {
             let adminUser = User(name: "admin", passwordHash: try Bcrypt.hash(adminPassword))
             return adminUser.save(on: database)
         } catch {
-            print("Error hash-making")
-            return Abort(.badRequest, reason: "Error hash-making") as! EventLoopFuture<Void>
+            fatalError("Error hash-making")
         }
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
-        return Abort(.badRequest, reason: "No revert") as! EventLoopFuture<Void>
+        return database.eventLoop.makeFailedFuture(Abort(.badRequest, reason: "No revert"))
     }
 }
 
 struct AppUser: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
-        guard let adminPassword = Environment.get("APP_PASSWORD") else {
-            print("There is no APP_PASSWORD")
-            return Abort(.badRequest, reason: "There is no APP_PASSWORD") as! EventLoopFuture<Void>
+        guard let appPassword = Environment.get("APP_PASSWORD") else {
+            fatalError("There is no APP_PASSWORD")
         }
         do {
-            let adminUser = User(name: "app", passwordHash: try Bcrypt.hash(adminPassword))
-            return adminUser.save(on: database)
+            let appUser = User(name: "app", passwordHash: try Bcrypt.hash(appPassword))
+            return appUser.save(on: database)
         } catch {
-            print("Error hash-making")
-            return Abort(.badRequest, reason: "Error hash-making") as! EventLoopFuture<Void>
+            fatalError("Error hash-making")
         }
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
-        return Abort(.badRequest, reason: "No revert") as! EventLoopFuture<Void>
+        return database.eventLoop.makeFailedFuture(Abort(.badRequest, reason: "No revert"))
     }
 }
 
@@ -45,6 +41,6 @@ struct ClientSettingsInit: Migration {
         return settings.save(on: database)
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
-        return Abort(.badRequest, reason: "No revert") as! EventLoopFuture<Void>
+        return database.eventLoop.makeFailedFuture(Abort(.badRequest, reason: "No revert"))
     }
 }
