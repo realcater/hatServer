@@ -83,7 +83,6 @@ struct UserController: RouteCollection {
     func login(_ req: Request) throws -> LoginResponse {
         let user = try req.auth.require(User.self)
         let jwtToken = try req.jwt.sign(JWTTokenPayload(userID: user.id!, userName: user.name))
-        print("==========\n\(jwtToken)\n==========")
         let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken)
         return loginResponse
     }
