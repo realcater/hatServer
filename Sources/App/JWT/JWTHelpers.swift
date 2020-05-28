@@ -8,12 +8,13 @@ enum JWTConfig {
 
 func jwtSign(_ app: Application) throws {
     
-    let jwksFilePath = app.directory.workingDirectory + "keypair.jwks"
+    //let jwksFilePath = app.directory.workingDirectory + "keypair.jwks"
     guard
-        let jwks = FileManager.default.contents(atPath: jwksFilePath),
-        let jwksString = String(data: jwks, encoding: .utf8)
+        //let jwks = FileManager.default.contents(atPath: jwksFilePath),
+        //let jwksString = String(data: jwks, encoding: .utf8)
+        let jwksString = Environment.get("KEYPAIR")
         else {
-            fatalError("Failed to load JWKS Keypair file at: \(jwksFilePath)")
+            fatalError("Failed to load JWKS Keypair")// file at: \(jwksFilePath)")
     }
     try app.jwt.signers.use(jwksJSON: jwksString)
     

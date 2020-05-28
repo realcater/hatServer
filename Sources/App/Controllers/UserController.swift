@@ -70,7 +70,7 @@ struct UserController: RouteCollection {
     func login(_ req: Request) throws -> LoginResponse {
         let user = try req.auth.require(User.self)
         let jwtToken = try req.jwt.sign(JWTTokenPayload(userID: user.id!, userName: user.name))
-        let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken)
+        let loginResponse = LoginResponse(name: user.name, id: user.id!, jwtToken: jwtToken, expirationDate: user.exp.value)
         return loginResponse
     }
 
@@ -100,6 +100,7 @@ struct LoginResponse: Content {
     let name: String
     let id: UUID
     let jwtToken: String
+    let expirationDate: Date
 }
 
 struct SearchRequestData: Content {
