@@ -37,7 +37,7 @@ struct AppUser: Migration {
 
 struct ClientSettingsInit: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
-        let settings = ClientSettings(updatePlayersStatus: 5.0, updateGameList: 5.0, checkOffline: 10.0, updateFrequent: 1.0, updateFullTillNextTry: 1.0, minimumAppVersion: 2)
+        let settings = ClientSettings(updatePlayersStatus: 5.0, updateGameList: 5.0, checkOffline: 10.0, updateFrequent: 1.0, updateFullTillNextTry: 1.0, minimumAppVersion: 2, logGameUpdate: true)
         return settings.save(on: database)
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
