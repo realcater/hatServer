@@ -5,9 +5,11 @@ final class Game: Model, Content {
     static let schema = "games"
     
     @ID(key: .id) var id: UUID?
+    @Field(key: "code") var code: String?
     @Field(key: "data") var data: Data
     @Field(key: "turn") var turn: Int
     @Field(key: "guessedThisTurn") var guessedThisTurn: Int
+    @Field(key: "lastWord") var lastWord: String?
     @Field(key: "explainTime") var explainTime: Date
     @Field(key: "basketChange") var basketChange: Int
     @Parent(key: "userID") var userOwner: User
@@ -23,10 +25,12 @@ final class Game: Model, Content {
         self.id = id
         self.data = data
         self.guessedThisTurn = 0
-        self.turn = 0
+        self.turn = -1
         self.basketChange = 0
         self.explainTime = Date().addingTimeInterval(-100000)
         self.$userOwner.id = userOwnerID
+        self.code = GameCode.new()
+        print("GameCode.codes=\(GameCode.codes)")
     }
     
     final class ListElement: Codable, Content {
@@ -46,56 +50,65 @@ final class Game: Model, Content {
         return ListElement(id: id!, userOwnerName: userOwner.name, turn: turn, createdAt: createdAt!)
     }
     
-    final class UUIDOnly: Codable, Content {
+    final class Created: Codable, Content {
         var id: UUID
-        init(id: UUID) {
+        var code: String?
+        
+        init(id: UUID, code: String?) {
             self.id = id
+            self.code = code
         }
     }
-    func convertToUUIDOnly() -> UUIDOnly {
-        return UUIDOnly(id: self.id!)
+    func convertToCreated() -> Created {
+        return Created(id: self.id!, code: self.code)
     }
     
     final class Frequent: Codable, Content {
-        internal init(turn: Int, guessedThisTurn: Int, explainTime: Date, basketChange: Int) {
+        internal init(turn: Int, guessedThisTurn: Int, lastWord: String?, explainTime: Date, basketChange: Int) {
             self.turn = turn
             self.guessedThisTurn = guessedThisTurn
+            self.lastWord = lastWord
             self.explainTime = explainTime
             self.basketChange = basketChange
         }
         
         var turn: Int
         var guessedThisTurn: Int
+        var lastWord: String?
         var explainTime: Date
         var basketChange: Int
     }
     func convertToFrequent() -> Frequent {
-        return Frequent(turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime, basketChange: basketChange)
+        return Frequent(turn: turn, guessedThisTurn: guessedThisTurn, lastWord: lastWord, explainTime: explainTime, basketChange: basketChange)
     }
     
     
     final class Full: Codable, Content {
-        internal init(id: UUID, data: GameData, userOwnerID: UUID, turn: Int, guessedThisTurn: Int, explainTime: Date, basketChange: Int) {
+        internal init(id: UUID, code: String?, data: GameData, userOwnerID: UUID, turn: Int, guessedThisTurn: Int, lastWord: String?, explainTime: Date, basketChange: Int) {
             self.id = id
+            self.code = code
             self.data = data
             self.userOwnerID = userOwnerID
             self.turn = turn
             self.guessedThisTurn = guessedThisTurn
+            self.lastWord = lastWord
             self.explainTime = explainTime
             self.basketChange = basketChange
         }
         
         var id: UUID
+        var code: String?
         var data: GameData
         var userOwnerID: UUID
         var turn: Int
         var guessedThisTurn: Int
+        var lastWord: String?
         var explainTime: Date
         var basketChange: Int
     }
     func convertToFull() -> Full {
         let gameData = try! JSONDecoder().decode(GameData.self, from: data)
-        return Full(id: id!, data: gameData, userOwnerID: $userOwner.id, turn: turn, guessedThisTurn: guessedThisTurn, explainTime: explainTime, basketChange: basketChange)
+        return Full(id: id!, code: code, data: gameData, userOwnerID: $userOwner.id, turn: turn, guessedThisTurn: guessedThisTurn, lastWord: lastWord, explainTime: explainTime, basketChange: basketChange)
     }
 }
 extension Game {
@@ -117,6 +130,20 @@ extension Game {
 
         func revert(on database: Database) -> EventLoopFuture<Void> {
             return database.schema("games").delete()
+        }
+    }
+    struct GameMigration20200602: Migration {
+        func prepare(on database: Database) -> EventLoopFuture<Void> {
+            return database.schema("games")
+                .field("code", .string)
+                .field("lastWord", .string)
+                .update()
+        }
+        func revert(on database: Database) -> EventLoopFuture<Void> {
+            return database.schema("games")
+                .deleteField("code")
+                .deleteField("lastWord")
+                .update()
         }
     }
 }

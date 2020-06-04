@@ -27,6 +27,7 @@ public func configure(_ app: Application) throws {
     app.migrations.add(LogGameUpdate.LogGameUpdateMigration())
     app.migrations.add(Word.WordMigration())
     app.migrations.add(ClientSettings.ClientSettingsMigration())
+    app.migrations.add(Game.GameMigration20200602())
     
     app.migrations.add(AdminUser())
     app.migrations.add(AppUser())
@@ -35,5 +36,4 @@ public func configure(_ app: Application) throws {
     // register routes
     try routes(app)
     try jwtSign(app)
-    
 }

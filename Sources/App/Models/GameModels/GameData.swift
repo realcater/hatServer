@@ -27,19 +27,19 @@ enum GuessedStatus: Int, Codable  {
 }
 
 final class Player: Codable {
-    init(id: UUID, name: String, tellGuessed: Int, listenGuessed: Int, accepted: Bool, inGame: Bool) {
+    init(id: UUID, name: String, accepted: Bool = false, lastTimeInGame: Date = Date(timeIntervalSince1970: 0)) {
         self.id = id
         self.name = name
+        tellGuessed = 0
+        listenGuessed = 0
         self.accepted = accepted
-        self.inGame = inGame
-        self.tellGuessed = tellGuessed
-        self.listenGuessed = listenGuessed
+        self.lastTimeInGame = lastTimeInGame
     }
     var id: UUID
     var name: String
     var tellGuessed: Int
     var listenGuessed: Int
     var accepted: Bool
-    var inGame: Bool
+    var lastTimeInGame: Date
 }
 
