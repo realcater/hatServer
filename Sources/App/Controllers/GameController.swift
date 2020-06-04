@@ -46,16 +46,10 @@ struct GameController: RouteCollection {
     }
 
     func joinGame(_ req: Request) throws -> EventLoopFuture<Game.Full> {
-        let secondName: String?
-        let code: String
-        let codeRaw = try req.content.decode(JoinData.self).code
-        if codeRaw.contains(",,,") {
-            secondName = String(codeRaw.suffix(codeRaw.count-7))
-            code = String(codeRaw.prefix(4))
-        } else {
-            code = codeRaw
-            secondName = nil
-        }
+        let data = try req.content.decode(JoinData.self)
+        let code = data.code
+        let additionalName = data.additionalName
+
         let userID = try? req.auth.require(JWTTokenPayload.self).userID
         return Game.query(on: req.db).filter(\.$code == code).first()
             .unwrap(or: Abort(.notFound))
@@ -64,7 +58,7 @@ struct GameController: RouteCollection {
                     return req.eventLoop.makeFailedFuture(Abort(.unprocessableEntity))
                 }
                 let gameData = try! JSONDecoder().decode(GameData.self, from: game.data)
-                guard !gameData.players.map({ $0.id }).contains(userID) || secondName != nil else {
+                guard !gameData.players.map({ $0.id }).contains(userID) || additionalName != nil else {
                     let index = gameData.players.firstIndex(where: { $0.id == userID})!
                     gameData.players[index].accepted = true
                     game.data = try! JSONEncoder().encode(gameData)
@@ -72,7 +66,7 @@ struct GameController: RouteCollection {
                 }
                 return User.find(userID, on: req.db).unwrap(or: Abort(.notFound))
                     .flatMap { user in
-                        let name: String = secondName ?? user.name
+                        let name: String = additionalName ?? user.name
                         let player = Player(id: user.id!, name: name, accepted: true, lastTimeInGame: Date())
                         gameData.players.append(player)
                         game.data = try! JSONEncoder().encode(gameData)
@@ -199,6 +193,7 @@ struct GameController: RouteCollection {
                 guard game.turn != K.endTurnNumber else { return req.eventLoop.makeSucceededFuture(HTTPStatus.imUsed) }
                 game.guessedThisTurn = frequent.guessedThisTurn
                 game.turn = frequent.turn
+                game.lastWord = frequent.lastWord
                 if game.turn == K.endTurnNumber {
                     GameCode.delete(code: game.code)
                     print("GameCode.codes=\(GameCode.codes)")
@@ -250,7 +245,7 @@ struct StatusBeforeStart: Content {
     var turn: Int
 }
 
-struct WordData: Codable, Content {
+struct WordData: Content {
     var word: String
     var timeGuessed: Int
     var guessedStatus: GuessedStatus
@@ -258,4 +253,5 @@ struct WordData: Codable, Content {
 
 struct JoinData: Content {
     var code: String
+    var additionalName: String?
 }
